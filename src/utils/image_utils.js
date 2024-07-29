@@ -84,6 +84,7 @@ const processImagesAsync = async (requestId) => {
   }
 };
 
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const fetchImageWithRetry = async (url, retries = 5) => {
   let attempt = 0;
