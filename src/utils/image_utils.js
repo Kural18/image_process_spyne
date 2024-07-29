@@ -85,22 +85,26 @@ const processImagesAsync = async (requestId) => {
 };
 
 
-const fetchImageWithRetry = async (url, retries = 5, backoff = 10000) => {
-  for (let i = 0; i < retries; i++) {
+const fetchImageWithRetry = async (url, retries = 5) => {
+  let attempt = 0;
+
+  while (attempt < retries) {
     try {
       const response = await axios({ url, responseType: 'arraybuffer' });
       return Buffer.from(response.data, 'binary');
     } catch (error) {
       if (error.response && error.response.status === 429) {
         const retryAfter = error.response.headers['retry-after'];
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : backoff;
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000;
         console.warn(`Rate limited. Retrying after ${waitTime / 1000} seconds...`);
         await wait(waitTime);
+        attempt++;
       } else {
         throw error;
       }
     }
   }
+
   throw new Error(`Failed to fetch image from URL: ${url} after ${retries} attempts`);
 };
 
