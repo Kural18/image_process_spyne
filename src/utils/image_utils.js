@@ -38,8 +38,7 @@ const processImagesAsync = async (requestId) => {
           console.log(`Processing image URL: ${image.url}`);
 
 
-          const response = await axios({ url: image.url, responseType: 'arraybuffer' });
-          const imageBuffer = Buffer.from(response.data, 'binary');
+          const imageBuffer = await fetchImageWithRetry(image.url);
 
           const metadata = await sharp(imageBuffer).metadata();
           const width = metadata.width;
@@ -83,6 +82,26 @@ const processImagesAsync = async (requestId) => {
   } catch (error) {
     console.error(`Failed to process request ID: ${requestId}, Error: ${error.message}`);
   }
+};
+
+
+const fetchImageWithRetry = async (url, retries = 5, backoff = 500) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await axios({ url, responseType: 'arraybuffer' });
+      return Buffer.from(response.data, 'binary');
+    } catch (error) {
+      if (error.response && error.response.status === 429) {
+        const retryAfter = error.response.headers['retry-after'];
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : backoff * Math.pow(2, i);
+        console.warn(`Rate limited. Retrying after ${waitTime / 1000} seconds...`);
+        await wait(waitTime);
+      } else {
+        throw error;
+      }
+    }
+  }
+  throw new Error(`Failed to fetch image from URL: ${url} after ${retries} attempts`);
 };
 
 module.exports = { processImagesAsync };
