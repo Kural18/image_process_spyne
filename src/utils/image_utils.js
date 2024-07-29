@@ -88,12 +88,14 @@ const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const fetchImageWithRetry = async (url, retries = 5) => {
   let attempt = 0;
+  let lastError = null;
 
   while (attempt < retries) {
     try {
       const response = await axios({ url, responseType: 'arraybuffer' });
       return Buffer.from(response.data, 'binary');
     } catch (error) {
+      lastError = error; // Store the last error encountered
       if (error.response && error.response.status === 429) {
         const retryAfter = error.response.headers['retry-after'];
         const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000;
@@ -106,7 +108,8 @@ const fetchImageWithRetry = async (url, retries = 5) => {
     }
   }
 
-  throw new Error(`Failed to fetch image from URL: ${url} after ${retries} attempts`);
+  // Include details of the last error encountered in the final error message
+  throw new Error(`Failed to fetch image from URL: ${url} after ${retries} attempts. Last error: ${lastError.message}`);
 };
 
 module.exports = { processImagesAsync };
